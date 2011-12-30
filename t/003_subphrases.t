@@ -4,11 +4,10 @@
 
 use strict;
 use warnings;
-
 use Test::More tests => 3;
 BEGIN { use_ok('Text::StemTagPOS'); }
 
-my $object = Text::StemTagPOS->new(listOfPOSTypesToKeep => ['ALL']);
+my $object = Text::StemTagPOS->new(listOfPOSTagsToKeep => [qw(CC CD DET EX FW IN JJ JJR JJS LS MD NN NNP NNPS NNS PDT POS PRP PRPS RB RBR RBS RP SYM TO UH VB VBD VBG VBN VBP VBZ WDT WP WPS WRB PP PPC PPD PPL PPR PPS LRB RRB)]);
 isa_ok($object, 'Text::StemTagPOS');
 ok (substringFindingTest (), 'Substring finding test');
 
@@ -33,7 +32,7 @@ sub substringFindingTest
 		my $subphrasePositions = $object->getWordsPhrasesInTaggedText (
 		  listOfStemmedTaggedSentences => $sentences,
 		  listOfWordsOrPhrasesToFind => $phrasesToFind);
-
+		  
     unless (arePositionsEqual ($phrasePositions, $subphrasePositions))
     {
       return 0;
@@ -85,7 +84,11 @@ sub getRandomSentences
 		my @sentence;
 		for (my $i = 0 ; $i < $len ; $i++)
 		{
-			$sentence[$i] = [ 'x' . $wordIndex, 'x' . $wordIndex, '/FW', $wordIndex++ ];
+			$sentence[$i] = [];
+      $sentence[$i]->[Text::StemTagPOS::WORD_STEMMED] = 'x' . $wordIndex;
+      $sentence[$i]->[Text::StemTagPOS::WORD_ORIGINAL] = 'x' . $wordIndex;
+      $sentence[$i]->[Text::StemTagPOS::WORD_POSTAG] = '/FW';
+      $sentence[$i]->[Text::StemTagPOS::WORD_INDEX] = $wordIndex++;
 		}
 		push @listOfSentences, \@sentence;
 	}
@@ -129,7 +132,7 @@ sub getPhrasesToFind
 		
 		# store the subphrase.
 		push @allPhrases, join (' ', @copyOfWords);
-		push @subphrasePositions, [$sentence->[$startIndex][3], $sentence->[$startIndex + $length - 1][3]];
+		push @subphrasePositions, [$sentence->[$startIndex][Text::StemTagPOS::WORD_INDEX], $sentence->[$startIndex + $length - 1][Text::StemTagPOS::WORD_INDEX]];
 	}
 	
 	# return the list of phrases.

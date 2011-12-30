@@ -15,7 +15,7 @@ use Data::Dump qw(dump);
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.50';
+    $VERSION     = '0.60';
     @ISA         = qw(Exporter);
     @EXPORT      = qw();
     @EXPORT_OK   = qw();
@@ -28,15 +28,17 @@ use constant WORD_POSTAG => 2;
 use constant WORD_INDEX => 3;
 use constant WORD_CHAR_POSITION => 4;
 use constant WORD_CHAR_LENGTH => 5;
+use constant WORD_SENTENCE_ID => 6;
+use constant WORD_USER_DEFINED => 7;
 
 use constant POSTAGS_PERIOD => 'PP';
-use constant POSTAGS_PUNCTUATION => qw(PP PPC PPD PPL PPR PPS LRB RRB SYM);
+use constant POSTAGS_PUNCTUATION => qw(PP PGP PPC PPD PPL PPR PPS LRB RRB SYM);
 use constant POSTAGS_NOUN => qw(NN NNP NNPS NNS);
 use constant POSTAGS_ADJECTIVE => qw(CD JJ JJR JJS);
 use constant POSTAGS_VERB => qw(VB VBD VBG VBN VBP VBZ);
 use constant POSTAGS_ADVERB => qw(RB RBR RBS RP WRB);
 use constant POSTAGS_CONTENT_ADVERB => qw(RBR RBS RP);
-use constant POSTAGS_ALL => qw(CC CD DET EX FW IN JJ JJR JJS LS MD NN NNP NNPS NNS PDT POS PRP PRPS RB RBR RBS RP SYM TO UH VB VBD VBG VBN VBP VBZ WDT WP WPS WRB PP PPC PPD PPL PPR PPS LRB RRB);
+use constant POSTAGS_ALL => qw(CC CD DET EX FW IN JJ JJR JJS LS MD NN NNP NNPS NNS PDT POS PRP PRPS RB RBR RBS RP SYM TO UH VB VBD VBG VBN VBP VBZ WDT WP WPS WRB PP PGP PPC PPD PPL PPR PPS LRB RRB);
 use constant POSTAGS_CONTENT => (POSTAGS_CONTENT_ADVERB, POSTAGS_VERB, POSTAGS_ADJECTIVE, POSTAGS_NOUN);
 use constant POSTAGS_TEXTRANK => (POSTAGS_NOUN, POSTAGS_ADJECTIVE);
 
@@ -50,7 +52,8 @@ C<Text::StemTagPOS> - Computes stemmed/POS tagged lists of text.
   use Data::Dump qw(dump);
   my $stemTagger = Text::StemTagPOS->new;
   my $text = 'The first sentence. Sentence number two.';
-  dump $stemTagger->getStemmedAndTaggedText ($text);
+  my $listOfStemmedTaggedSentences = $stemTagger->getStemmedAndTaggedText ($text);
+  dump $listOfStemmedTaggedSentences;
 
 =head1 DESCRIPTION
 
@@ -144,7 +147,6 @@ sub new
   # get the list of parts of speech to keep when filtering.
   # the default is to keep only nouns and adjetives.
   $Self->{hashOfPOSTagsToKeep} = $Self->_getHashOfPOSTagsToKeep (%Parameters, instantiation => 1);
-
   return $Self;
 }
 
@@ -155,7 +157,8 @@ sub new
  getStemmedAndTaggedText (@Text, $Text, \@Text)
 
 The method C<getStemmedAndTaggedText> returns a hierarchy of array references containing the stemmed words,
-the original words, their part-of-speech tag, and their word position index within the original text. The hierarchy is of the form
+the original words, their part-of-speech tag, and their word position index within the original text. 
+The hierarchy is of the form
 
   [
     [ # sentence level: first sentence.
@@ -196,16 +199,21 @@ the information about each word.
   #  dumps:
   #  [
   #    [
-  #      ["the", "The", "/DET", 0, 0, 3],
-  #      ["first", "first", "/JJ", 1, 4, 5],
-  #      ["sentenc", "sentence", "/NN", 2, 10, 8],
-  #      [".", ".", "/PP", 3, 18, 1],
+  #      ["the", "The", "/DET", 0, 0, 3, 0],
+  #      [" ", " ", "/PGP", 1, 3, 1, 0],
+  #      ["first", "first", "/JJ", 2, 4, 5, 0],
+  #      [" ", " ", "/PGP", 3, 9, 1, 0],
+  #      ["sentenc", "sentence", "/NN", 4, 10, 8, 0],
+  #      [".", ".", "/PP", 5, 18, 1, 0],
+  #      [" ", " ", "/PGP", 6, 19, 1, 0],
   #    ],
   #    [
-  #      ["sentenc", "Sentence", "/NN", 4, 20, 8],
-  #      ["number", "number", "/NN", 5, 29, 6],
-  #      ["two", "two", "/CD", 6, 36, 3],
-  #      [".", ".", "/PP", 7, 39, 1],
+  #      ["sentenc", "Sentence", "/NN", 7, 20, 8, 1],
+  #      [" ", " ", "/PGP", 8, 28, 1, 1],
+  #      ["number", "number", "/NN", 9, 29, 6, 1],
+  #      [" ", " ", "/PGP", 10, 35, 1, 1],
+  #      ["two", "two", "/CD", 11, 36, 3, 1],
+  #      [".", ".", "/PP", 12, 39, 1, 1],
   #    ],
   #  ]
 
@@ -269,7 +277,7 @@ sub getStemmedAndTaggedText
       my $listOfSentences = $Self->_convertTextToListOfSentenceWordTags ($taggedText);
 
       # add the position in the original text and the length of the words.
-      $Self->_addPositionLengthWordInfo ($initialIndex, $text, $listOfSentences);
+      $listOfSentences = $Self->_addPositionLengthWordInfo ($initialIndex, $text, $listOfSentences);
 
       # save the list of sentences.
       push @sentences, @$listOfSentences;
@@ -390,6 +398,256 @@ sub _addPositionLengthWordInfo
       }
     }
   }
+  
+  # add the gaps.
+  # still need some work here to get the words into the list of sentences that they belong in.
+  my $listOfWordsAndGaps = _addGapsToListOfWords (listOfWords => \@listOfWords, stringLength => length ($Text), positionOffset => $PositionOffset);
+  
+  # add the sentence id to each gap.
+  my $currentSentenceId = 0;
+  my @newListOfSentences;
+  foreach my $word (@$listOfWordsAndGaps)
+  {
+    $newListOfSentences[$currentSentenceId] = [] unless defined $newListOfSentences[$currentSentenceId];
+
+    if ($word->[WORD_POSTAG] eq '/PGP')
+    {
+      $word->[WORD_SENTENCE_ID] = $currentSentenceId;
+      $word->[WORD_ORIGINAL] = substr ($Text, $word->[WORD_CHAR_POSITION] - $PositionOffset, $word->[WORD_CHAR_LENGTH]);
+    }
+    else
+    {
+      $currentSentenceId = $word->[WORD_SENTENCE_ID];
+    }
+    
+    push @{$newListOfSentences[$currentSentenceId]}, $word;
+  }
+  
+  return \@newListOfSentences;
+}
+
+
+sub _addGapsToListOfWords
+{
+  # get the parameters.
+  my %Parameters = @_;
+  
+  # get the length of the original string.
+  my $stringLength = $Parameters{stringLength};
+
+  # get the list of words.
+  my $listOfWords = $Parameters{listOfWords};
+  
+  # get the position offset if it exists and is defined.
+  my $positionOffset = 0;
+  $positionOffset = $Parameters{positionOffset} if (exists ($Parameters{positionOffset}) && defined ($Parameters{positionOffset}));
+
+  # build the list of complete tokens.
+  my @listOfWordsAndGaps = @$listOfWords;
+
+  # get the list of missing substring positions.
+  my $listOfMissingSubstrings = _getListOfMissingSubstringPositions(listOfSubstringPositions => $listOfWords, stringLength => $stringLength, positionOffset => $positionOffset);
+  
+  # add the gaps to the list.
+  foreach my $gapInfo (@$listOfMissingSubstrings)
+  {
+    $gapInfo->[WORD_STEMMED] = ' ';
+    $gapInfo->[WORD_ORIGINAL] = undef;
+    $gapInfo->[WORD_POSTAG] = '/PGP';
+    $gapInfo->[WORD_INDEX] = undef;
+  }
+
+  # sort the substrings by position.
+  @listOfWordsAndGaps = sort { $a->[WORD_CHAR_POSITION] <=> $b->[WORD_CHAR_POSITION] } (@listOfWordsAndGaps, @$listOfMissingSubstrings);
+
+  # if test is true, make sure things were computed correctly.
+  if (exists($Parameters{test}) && $Parameters{test})
+  {
+    my $totalSubstrings = @listOfWordsAndGaps;
+
+    for (my $i = 1 ; $i < $totalSubstrings ; $i++)
+    {
+
+      # make sure the strings are sorted.
+      if ($listOfWordsAndGaps[ $i - 1 ]->[WORD_CHAR_POSITION] > $listOfWordsAndGaps[$i]->[WORD_CHAR_POSITION])
+      {
+        croak 'error: substrings in $listOfSubstringInfo are not sorted and should be.';
+      }
+
+      # make sure the strings have at least one character.
+      if ($listOfWordsAndGaps[ $i - 1 ]->[WORD_CHAR_LENGTH] < 1)
+      {
+        croak 'error: substrings in $listOfSubstringInfo has length less than one.';
+      }
+    }
+  }
+
+  # returns the complete list of tokens sorted by their starting index in ascending order.
+  return \@listOfWordsAndGaps;
+}
+
+
+
+# routine returns an array reference of the gaps or missing substrings given
+# a list of substrings. for example, if listOfSubstringPositions is
+# [[2,4], [9,2], [11,5], [20,1]] and stringLength is 25, then the list returned
+# is [[0, 2], [6, 3], [16, 4], [21, 4]].
+sub _getListOfMissingSubstringPositions    # (listOfSubstringPositions => \@, stringLength => n, positionOffset => n)
+{
+  # get the parameters.
+  my %Parameters = @_;
+  
+  # get the position offset if it exists and is defined.
+  my $positionOffset = 0;
+  $positionOffset = $Parameters{positionOffset} if (exists ($Parameters{positionOffset}) && defined ($Parameters{positionOffset}));
+
+  # if listOfSubstringPositions is not defined, we have one special case.
+  if (!defined($Parameters{listOfSubstringPositions}))
+  {
+    if (!defined($Parameters{stringLength}))
+    {
+
+      # no parameters defined, so return the empty list.
+      return [];
+    }
+    else
+    {
+      if (int($Parameters{stringLength}) > 0)
+      {
+
+        # positive string length, but no substrings, so gap is entire string.
+        return [ 0, int($Parameters{stringLength}) - 1 ];
+      }
+      else
+      {
+
+        # non-positive string length, so return empty list.
+        return [];
+      }
+    }
+  }
+
+  # get the list of [WORD_CHAR_POSITION, WORD_CHAR_LENGTH].
+  my $listOfSubstringPositions = $Parameters{listOfSubstringPositions};
+
+  # get the number of subtrings.
+  my $totalSubstrings = $#$listOfSubstringPositions + 1;
+
+  # skip substrings having length less than one or a negative position.
+  my @filteredListOfSubstringPositions;
+  for (my $i = 0 ; $i < $totalSubstrings ; $i++)
+  {
+    next if ($listOfSubstringPositions->[$i][WORD_CHAR_LENGTH] < 1);
+    next if ($listOfSubstringPositions->[$i][WORD_CHAR_POSITION] < 0);
+    push @filteredListOfSubstringPositions, $listOfSubstringPositions->[$i];
+  }
+  $listOfSubstringPositions = \@filteredListOfSubstringPositions;
+  $totalSubstrings          = $#$listOfSubstringPositions + 1;
+
+  # get the entire strings length if defined.
+  my $stringLength;
+  $stringLength = int abs $Parameters{stringLength} if exists $Parameters{stringLength};
+
+  # if $stringLength is undefined use the last substring to compute the length
+  # of the entire string; the string will not end with a gap in this case.
+  if (!defined($stringLength) && $totalSubstrings)
+  {
+    $stringLength = 0;
+    foreach my $currentSubstringInfo (@$listOfSubstringPositions)
+    {
+      my $last = $currentSubstringInfo->[WORD_CHAR_POSITION] + $currentSubstringInfo->[WORD_CHAR_LENGTH];
+      $stringLength = $last if $last > $stringLength;
+    }
+    $stringLength -= $positionOffset;
+  }
+
+  # if $stringLength is not defined at this point there are no gaps.
+  return [] unless ((defined $stringLength) && ($stringLength > 0));
+
+  # if $totalSubstrings is zero, then the entire string is a gap.
+  unless ($totalSubstrings)
+  {
+    my @substringGapInfo;
+    $substringGapInfo[WORD_CHAR_POSITION] = 0;
+    $substringGapInfo[WORD_CHAR_LENGTH]   = $stringLength;
+    return [ \@substringGapInfo ];
+  }
+
+  # sort the pairs by their position.
+  my @listOfSubstringPositions = sort { $a->[WORD_CHAR_POSITION] <=> $b->[WORD_CHAR_POSITION] } @$listOfSubstringPositions;
+
+  # @listOfMissingSubstringPositions holds all the gaps.
+  my @listOfMissingSubstringPositions;
+
+  # get the first substring position.
+  my $currentSubstringInfo = $listOfSubstringPositions[0];
+
+  # if the first substring does not start with position 0, add the beginning gap.
+  if ($currentSubstringInfo->[WORD_CHAR_POSITION] > $positionOffset)
+  {
+    my @substringGapInfo;
+    $substringGapInfo[WORD_CHAR_POSITION] = $positionOffset;
+    $substringGapInfo[WORD_CHAR_LENGTH]   = $currentSubstringInfo->[WORD_CHAR_POSITION] - $positionOffset;
+    push @listOfMissingSubstringPositions, \@substringGapInfo;
+  }
+  
+  # compute the gaps.
+  for (my $i = 1 ; $i < $totalSubstrings ; $i++)
+  {
+
+    # get the information about the previous and current substrings.
+    my $previousSubstringInfo = $listOfSubstringPositions[ $i - 1 ];
+    my $currentSubstringInfo  = $listOfSubstringPositions[$i];
+
+    # compute the starting index and length of the gap.
+    my $gapStartPosition = $previousSubstringInfo->[WORD_CHAR_POSITION] + $previousSubstringInfo->[WORD_CHAR_LENGTH];
+    my $gapEndPosition   = $currentSubstringInfo->[WORD_CHAR_POSITION] - 1;
+    my $gapLength        = $gapEndPosition - $gapStartPosition + 1;
+
+    # if the gap is not a positive size, skip it.
+    # maybe a warning should be logged since it really should not happen.
+    if ($gapLength > 0)
+    {
+
+      # store the information about the gap.
+      my @substringGapInfo;
+      $substringGapInfo[WORD_CHAR_POSITION] = $gapStartPosition;
+      $substringGapInfo[WORD_CHAR_LENGTH]   = $gapLength;
+      push @listOfMissingSubstringPositions, \@substringGapInfo;
+    }
+  }
+
+  # add any trailing gap to the list.
+  $currentSubstringInfo = $listOfSubstringPositions[-1];
+  if ($currentSubstringInfo->[WORD_CHAR_POSITION] + $currentSubstringInfo->[WORD_CHAR_LENGTH] < $stringLength)
+  {
+    my @substringGapInfo;
+    $substringGapInfo[WORD_CHAR_POSITION] = $currentSubstringInfo->[WORD_CHAR_POSITION] + $currentSubstringInfo->[WORD_CHAR_LENGTH];
+    $substringGapInfo[WORD_CHAR_LENGTH] = $stringLength - ($currentSubstringInfo->[WORD_CHAR_POSITION] + $currentSubstringInfo->[WORD_CHAR_LENGTH]);
+    push @listOfMissingSubstringPositions, \@substringGapInfo;
+  }
+
+  # if test is true, check if gaps were computed correctly.
+  if (exists($Parameters{test}) && $Parameters{test})
+  {
+    my @allSubstrings =
+      sort { $a->[WORD_CHAR_POSITION] <=> $b->[WORD_CHAR_POSITION] } (@listOfSubstringPositions, @listOfMissingSubstringPositions);
+    my $totalSubstrings = @allSubstrings;
+
+    for (my $i = 1 ; $i < $totalSubstrings ; $i++)
+    {
+
+      # make sure the strings are sorted.
+      if ($allSubstrings[ $i - 1 ]->[WORD_CHAR_POSITION] + $allSubstrings[ $i - 1 ]->[WORD_CHAR_LENGTH] < $allSubstrings[$i]->[WORD_CHAR_POSITION])
+      {
+        my $logger = Log::Log4perl->get_logger();
+        $logger->logdie("error: missed computing a gap.");
+      }
+    }
+  }
+
+  # returns the list of missing substrings.
+  return \@listOfMissingSubstringPositions;
 }
 
 
@@ -445,12 +703,12 @@ values.
   #  dumps:
   #  [
   #    [
-  #      ["first", "first", "/JJ", 3, 12, 5],
-  #      ["sentenc", "sentence", "/NN", 4, 18, 8],
+  #      ["first", "first", "/JJ", 6, 12, 5, 0],
+  #      ["sentenc", "sentence", "/NN", 8, 18, 8, 0],
   #    ],
   #    [
-  #      ["last", "last", "/JJ", 9, 40, 4],
-  #      ["sentenc", "sentence", "/NN", 10, 45, 8],
+  #      ["last", "last", "/JJ", 17, 40, 4, 1],
+  #      ["sentenc", "sentence", "/NN", 19, 45, 8, 1],
   #    ],
   #  ]
 
@@ -462,7 +720,7 @@ sub getTaggedTextToKeep
 
   # get the list of sentences.
   my $listOfStemmedTaggedSentences = $Parameters{listOfStemmedTaggedSentences};
-
+  
   # get the hash of tags to keep.
   my $hashOfPOSToKeep = $Self->_getHashOfPOSTagsToKeep (%Parameters);
 
@@ -565,10 +823,10 @@ The code below illustrates the output format:
     listOfWordsOrPhrasesToFind => $listOfWordsOrPhrasesToFind);
   dump $phraseLocations;
   # [
-  #   [[3, 4]],           # 'first sentence'
-  #   [[0, 1], [6, 7]],   # 'this is': note period in text has index 5.
+  #   [[6, 8]],           # 'first sentence'
+  #   [[0, 2], [11, 13]], # 'this is': note period in text has index 5.
   #   [],                 # 'third sentence'
-  #   [[4, 4], [10, 10]]  # 'sentence'
+  #   [[8, 8], [19, 19]]  # 'sentence'
   # ]
 
 =cut
@@ -785,6 +1043,15 @@ sub _convertTextToListOfSentenceWordTags
   {
     push @sentences, $currentSentence;
   }
+  
+  # add the sentence id to each word.
+  for (my $i = 0; $i < @sentences; $i++)
+  {
+    foreach my $word (@{$sentences[$i]})
+    {
+      $word->[WORD_SENTENCE_ID] = $i;
+    }
+  }
 
   # return the list of sentences of word,tag pairs.
   return \@sentences;
@@ -870,6 +1137,7 @@ sub _getPartOfSpeechTags
     ['WRB', 'Adverb, question', 'when, how, however'],
     ['PP', 'Punctuation, sentence ender', '., !, ?'],
     ['PPC', 'Punctuation, comma', ','],
+    ['PGP', 'Punctuation, whitespace, gap', ' '],
     ['PPD', 'Punctuation, dollar sign', '$'],
     ['PPL', 'Punctuation, quotation mark left', '``'],
     ['PPR', 'Punctuation, quotation mark right', "''"],

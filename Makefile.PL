@@ -23,26 +23,3 @@ WriteMakefile(
                     },
     LICENSE      => 'perl',
 );
-
-__END__
-# Below are the automatically recommended values for PREREQ_PM.
-    PREREQ_PM    => {
-                     # list of core modules used:
-                     'Carp' => '1.16',
-                     'constant' => '1.20',
-                     'diagnostics' => '1.19',
-                     'Encode' => '2.39',
-                     'strict' => '1.04',
-                     'Test::More' => '0.96',
-                     'vars' => '1.01',
-                     'warnings' => '1.09',
-
-                     # list of installed modules used:
-                     'Data::Dump' => '1.17',
-                     'Lingua::EN::Tagger' => '0.16',
-                     'Lingua::Stem::Snowball' => '0.952',
-                     'Text::StemTagPOS' => '1.00',
-
-                     # list of unknown modules used:
-                     '5.006002' => '0',
-                    },

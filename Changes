@@ -1,4 +1,7 @@
 Revision history for Perl module Text::StemTagPOS
 
-v1.0 30 Oct 2009
+v0.50  9 Dec 2011
     - First working version released to CPAN.
+
+v0.60 27 Dec 2011
+    - Add /PGP tag to indicate gaps in words (usually whitespace).
