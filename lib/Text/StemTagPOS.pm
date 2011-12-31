@@ -1,8 +1,5 @@
 package Text::StemTagPOS;
 
-# TODO: add Lingua::DE::Tagger
-# TODO: add XML output option.
-
 require 5.006002;
 use strict;
 use warnings;
@@ -15,7 +12,7 @@ use Data::Dump qw(dump);
 BEGIN {
     use Exporter ();
     use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-    $VERSION     = '0.60';
+    $VERSION     = '0.61';
     @ISA         = qw(Exporter);
     @EXPORT      = qw();
     @EXPORT_OK   = qw();
@@ -186,8 +183,13 @@ scalars, arrays of strings of text, or references to arrays of strings of text, 
 The following examples below show the various ways to call the method; note that the constants
 Text::StemTagPOS::WORD_STEMMED,
 Text::StemTagPOS::WORD_ORIGINAL,
-Text::StemTagPOS::WORD_POSTAG, and Text::StemTagPOS::WORD_INDEX are used to access
-the information about each word.
+Text::StemTagPOS::WORD_POSTAG,
+Text::StemTagPOS::WORD_INDEX,
+Text::StemTagPOS::WORD_CHAR_POSITION,
+Text::StemTagPOS::WORD_CHAR_LENGTH,
+Text::StemTagPOS::WORD_SENTENCE_ID, and 
+Text::StemTagPOS::WORD_USER_DEFINED,
+are used to access the information about each word.
 
   use Text::StemTagPOS;
   use Data::Dump qw(dump);
@@ -1169,6 +1171,7 @@ sub _getListOfPOSTagsFromPOSTypesList
     elsif (($ucType cmp 'VERBS')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_VERB; }
     elsif (($ucType cmp 'ADJECTIVES')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_ADJECTIVE; }
     elsif (($ucType cmp 'ADVERBS')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_ADVERB; }
+    elsif (($ucType cmp 'CONTENT_ADVERBS')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_CONTENT_ADVERB; }
     elsif (($ucType cmp 'PUNCTUATION')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_PUNCTUATION; }
     elsif (($ucType cmp 'CONTENT_WORDS')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_CONTENT; }
     elsif (($ucType cmp 'TEXTRANK_WORDS')  == 0) { push @listOfPOSTagsToKeep, POSTAGS_TEXTRANK; }
